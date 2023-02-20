@@ -59,7 +59,7 @@ the smaller the neural network.
 | FP32 JIT TensorRT             | 1,907        | 0,181         | 0,153         | 0,151         |
 | FP16 TensorRT                 | 0,536        | 0,074         | 0,065         | 0,06          |
 | FP16 JIT TensorRT             | 1,949        | 0,158         | 0,132         | 0,123         |
-| INT8 Quantized CUDA           | 0,503        | 0,065         | 0,047         | 0,039         |
+| INT8 Quantized TensorRT       | 0,503        | 0,065         | 0,047         | 0,039         |
 
 
 | GPU Memory Peak usage [MB] - max_memory_allocated |              |               |               |               |
@@ -76,7 +76,7 @@ the smaller the neural network.
 | FP32 JIT TensorRT                                 | 2336         | 2399          | 2446          | 2544          |
 | FP16 TensorRT                                     | 2270         | 2275          | 2274          | 2293          |
 | FP16 JIT TensorRT                                 | 2336         | 2436          | 2438          | 2544          |
-| INT8 Quantized CUDA                               | 2270         | 2276          | 2285          | 2304          |
+| INT8 Quantized TensorRT                           | 2270         | 2276          | 2285          | 2304          |
 
 | F1 score                      |              |               |               |               |
 |-------------------------------|--------------|---------------|---------------|---------------|
@@ -92,7 +92,7 @@ the smaller the neural network.
 | FP32 JIT TensorRT             | 0,734        | 0,734         | 0,734         | 0,734         |
 | FP16 TensorRT                 | 0,735        | 0,735         | 0,735         | 0,735         |
 | FP16 JIT TensorRT             | 0,734        | 0,734         | 0,735         | 0,735         |
-| INT8 Quantized CUDA           | 0,695        | 0,701         | 0,7           | 0,709         |
+| INT8 Quantized TensorRT       | 0,695        | 0,701         | 0,7           | 0,709         |
 
 </details>
 
@@ -114,7 +114,7 @@ the smaller the neural network.
 | FP32 JIT TensorRT             | 1,526        | 0,262         | 0,216         | 0,199         |
 | FP16 TensorRT                 | 0,327        | 0,067         | 0,062         | 0,056         |
 | FP16 JIT TensorRT             | 1,511        | 0,26          | 0,215         | 0,199         |
-| INT8 Quantized CUDA           | 0,255        | 0,042         | 0,032         | 0,028         |
+| INT8 Quantized TensorRT       | 0,255        | 0,042         | 0,032         | 0,028         |
 
 
 | GPU Memory Peak usage [MB] - max_memory_allocated |              |               |               |               |
@@ -131,7 +131,7 @@ the smaller the neural network.
 | FP32 JIT TensorRT                                 | 2336         | 2399          | 2475          | 2646          |
 | FP16 TensorRT                                     | 2270         | 2275          | 2274          | 2293          |
 | FP16 JIT TensorRT                                 | 2336         | 2399          | 2475          | 2646          |
-| INT8 Quantized CUDA                               | 2270         | 2275          | 2285          | 2304          |
+| INT8 Quantized TensorRT                           | 2270         | 2275          | 2285          | 2304          |
 
 | F1 score                      |              |               |               |               |
 |-------------------------------|--------------|---------------|---------------|---------------|
@@ -147,7 +147,7 @@ the smaller the neural network.
 | FP32 JIT TensorRT             | 0,69         | 0,69          | 0,69          | 0,69          |
 | FP16 TensorRT                 | 0,69         | 0,69          | 0,69          | 0,69          |
 | FP16 JIT TensorRT             | 0,69         | 0,69          | 0,69          | 0,69          |
-| INT8 Quantized CUDA           | 0,689        | 0,689         | 0,689         | 0,689         |
+| INT8 Quantized TensorRT       | 0,689        | 0,689         | 0,689         | 0,689         |
 
 </details>
 
@@ -169,7 +169,7 @@ the smaller the neural network.
 | FP32 JIT TensorRT             | 0,278        | 0,024         | 0,015         | 0,01          |
 | FP16 TensorRT                 | 0,215        | 0,02          | 0,012         | 0,009         |
 | FP16 JIT TensorRT             | 0,221        | 0,019         | 0,015         | 0,01          |
-| INT8 Quantized CUDA           | 0,286        | 0,027         | 0,016         | 0,011         |
+| INT8 Quantized TensorRT       | 0,286        | 0,027         | 0,016         | 0,011         |
 
 
 | GPU Memory Peak usage [MB] - max_memory_allocated |              |               |               |               |
@@ -186,7 +186,7 @@ the smaller the neural network.
 | FP32 JIT TensorRT                                 | 2530         | 2536          | 2545          | 2563          |
 | FP16 TensorRT                                     | 2270         | 2276          | 2285          | 2304          |
 | FP16 JIT TensorRT                                 | 2530         | 2536          | 2545          | 2563          |
-| INT8 Quantized CUDA                               | 2270         | 2276          | 2285          | 2304          |
+| INT8 Quantized TensorRT                           | 2270         | 2276          | 2285          | 2304          |
 
 </details>
 
@@ -207,7 +207,7 @@ the smaller the neural network.
 | FP32 JIT TensorRT             | 0,298        | 0,057         | 0,048         | 0,046         |
 | FP16 TensorRT                 | 0,155        | 0,023         | 0,018         | 0,016         |
 | FP16 JIT TensorRT             | 0,3          | 0,057         | 0,049         | 0,045         |
-| INT8 Quantized CUDA           | 0,161        | 0,024         | 0,02          | 0,018         |
+| INT8 Quantized TensorRT       | 0,161        | 0,024         | 0,02          | 0,018         |
 
 | GPU Memory Peak usage [MB] - max_memory_allocated |              |               |               |               |
 |---------------------------------------------------|--------------|---------------|---------------|---------------|
@@ -223,6 +223,6 @@ the smaller the neural network.
 | FP32 JIT TensorRT                                 | 2272         | 2300          | 2331          | 2393          |
 | FP16 TensorRT                                     | 2270         | 2276          | 2285          | 2304          |
 | FP16 JIT TensorRT                                 | 2272         | 2300          | 2331          | 2393          |
-| INT8 Quantized CUDA                               | 2270         | 2276          | 2285          | 2304          |
+| INT8 Quantized TensorRT                           | 2270         | 2276          | 2285          | 2304          |
 
 </details>
