@@ -12,8 +12,8 @@ To install all dependencies run `poetry install` command.
 
 The benchmark uses the ImageNet-mini dataset, which can be downloaded from the site:
 https://www.kaggle.com/datasets/ifigotin/imagenetmini-1000. After downloading, extract
-the archive in to a directory of a newly created directory named `data/` located in the
-directory with the cloned repository.
+the archive in to a directory of a directory named `data/` located in the directory
+with the cloned repository.
 
 ## Run
 
