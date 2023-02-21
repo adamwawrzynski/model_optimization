@@ -49,6 +49,15 @@ the smaller the neural network.
 
 ## Results
 
+ Benchmark environment:
+* Torch-TensorRT Version (e.g. 1.0.0): 1.3.0
+* PyTorch Version (e.g. 1.0): 1.13.1
+* CPU Architecture: AMD® Ryzen 9 5950x 16-core processor × 32
+* OS (e.g., Linux): Ubuntu 22.04.2 LTS
+* Python version: 3.9.16
+* CUDA version: 11.6
+* GPU models and configuration: GeForce RTX 3080 Ti
+
 <details>
 <summary>MobileNetV3 Large</summary>
 
