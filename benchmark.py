@@ -85,10 +85,6 @@ def load_dataset(use_train: bool = False) -> torchvision.datasets.DatasetFolder:
             ]
         ),
     )
-    # my_transform = transforms.Compose([transforms.ToTensor()])
-
-    # # Download data
-    # testing_dataset = torchvision.datasets.MNIST('data', train = False, download=True, transform=my_transform)
 
     return testing_dataset
 
