@@ -242,3 +242,40 @@ the smaller the neural network.
 | INT8 Quantized TensorRT                           | 2270         | 2276          | 2285          | 2304          |
 
 </details>
+
+<details>
+<summary>LSTM</summary>
+
+| Inference time [ms/sample]    |              |               |               |               |
+|-------------------------------|--------------|---------------|---------------|---------------|
+|                               | Batch size 1 | Batch size 16 | Batch size 32 | Batch size 64 |
+| FP32 CPU                      | 11,007       | 5,434         | 2,941         | 1,653         |
+| FP32 JIT CPU                  | 11,015       | 5,336         | 2,876         | 1,57          |
+| INT8 CPU Dynamic Quantization | 11,587       | 5,314         | 2,849         | 1,443         |
+| FP32 CUDA                     | 3,343        | 0,229         | 0,114         | 0,061         |
+| FP32 JIT CUDA                 | 4,96         | 0,33          | 0,168         | 0,091         |
+| FP16 CUDA                     | 4,459        | 0,278         | 0,142         | 0,078         |
+| FP16 JIT CUDA                 | 4,407        | 0,277         | 0,134         | 0,079         |
+| FP32 TensorRT                 | 3,398        | 0,234         | 0,124         | 0,068         |
+| FP32 JIT TensorRT             | 5,043        | 0,339         | 0,177         | 0,096         |
+| FP16 TensorRT                 | 3,375        | 0,245         | 0,124         | 0,069         |
+| FP16 JIT TensorRT             | 5,069        | 0,354         | 0,178         | 0,096         |
+| INT8 Quantized TensorRT       | RuntimeError | RuntimeError  | RuntimeError  | RuntimeError  |
+
+| GPU Memory Peak usage [MB] - max_memory_allocated |              |               |               |               |
+|---------------------------------------------------|--------------|---------------|---------------|---------------|
+|                                                   | Batch size 1 | Batch size 16 | Batch size 32 | Batch size 64 |
+| FP32 CPU                                          | 0            | 0             | 0             | 0             |
+| FP32 JIT CPU                                      | 0            | 0             | 0             | 0             |
+| INT8 CPU Dynamic Quantization                     | 0            | 0             | 0             | 0             |
+| FP32 CUDA                                         | 2487         | 2504          | 2519          | 2565          |
+| FP32 JIT CUDA                                     | 2594         | 2611          | 2626          | 2671          |
+| FP16 CUDA                                         | 1352         | 1362          | 1370          | 1397          |
+| FP16 JIT CUDA                                     | 2486         | 2499          | 2507          | 2540          |
+| FP32 TensorRT                                     | 2487         | 2516          | 2549          | 2613          |
+| FP32 JIT TensorRT                                 | 2594         | 2623          | 2655          | 2719          |
+| FP16 TensorRT                                     | 2487         | 2516          | 2549          | 2613          |
+| FP16 JIT TensorRT                                 | 2594         | 2623          | 2655          | 2719          |
+| INT8 Quantized TensorRT                           | RuntimeError | RuntimeError  | RuntimeError  | RuntimeError  |
+
+</details>
