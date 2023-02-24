@@ -3,6 +3,8 @@ import torch
 import torch_tensorrt # to install follow https://github.com/pytorch/TensorRT/issues/1371#issuecomment-1256035010 in version 1.3.0
 from benchmark import benchmark_cpu, benchmark_cuda, benchmark_tensorrt, benchmark_tensorrt_ptq, benchmark_dynamic_quantization, benchmark_pruning
 from model_utils import save_torchscript
+from dataset_utils import load_dataset_cv, load_dataset_nlp
+from transformers import BatchEncoding
 
 import argparse
 
@@ -12,7 +14,7 @@ torch_tensorrt.logging.set_reportable_log_level(torch_tensorrt.logging.Level(tor
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("Benchmark model optimization techniques")
     parser.add_argument("--type", choices=["cpu", "cuda", "tensorrt", "quantization", "dynamic_quantization", "pruning"], required=True, help="Model's operation type.")
-    parser.add_argument("--model_name", choices=["swin_t", "vit", "resnet", "mobilenet", "fcn", "cnn", "rnn"], required=True, help="Model's name.")
+    parser.add_argument("--model_name", choices=["swin_t", "vit", "resnet", "mobilenet", "fcn", "cnn", "rnn", "bert", "t5"], required=True, help="Model's name.")
     parser.add_argument("--use_fp16", action="store_true", help="Use half precision model.")
     parser.add_argument("--use_jit", action="store_true", help="Use JIT model.")
     parser.add_argument("--batch_size", type=int, default=1, help="Size of processed batch.")
@@ -40,7 +42,22 @@ def main() -> None:
 
     cuda_device = torch.device("cuda:0")
     cpu_device = torch.device("cpu:0")
-    input_size = (args.batch_size, 3, 224, 224) # dimensions for ImageNet samples
+
+    if args.model_name in ["bert", "t5"]:
+        load_dataset_func = load_dataset_nlp
+    else:
+        load_dataset_func = load_dataset_cv
+
+    dataset = load_dataset_func()
+    example_inputs = dataset[0][0]
+    if isinstance(example_inputs, BatchEncoding):
+        example_inputs = [
+            example_inputs["input_ids"],
+            example_inputs["token_type_ids"],
+            example_inputs["attention_mask"],
+        ]
+    else:
+        example_inputs = None
 
     # save model's torchscript .pth file
     model_torchscript_path: str = os.path.join(args.model_dir, args.model_filename)
@@ -49,6 +66,7 @@ def main() -> None:
         device=cpu_device,
         batch_size=args.batch_size,
         model_torchscript_path=model_torchscript_path,
+        example_inputs=example_inputs,
     )
 
     # compute inference time, CUDA memory usage and F1 score
@@ -57,6 +75,7 @@ def main() -> None:
             model_name=args.model_name,
             device=cpu_device,
             batch_size=args.batch_size,
+            load_dataset_func=load_dataset_func,
             model_torchscript_path=model_torchscript_path,
             use_jit=args.use_jit,
             n_runs=args.n_runs,
@@ -66,6 +85,7 @@ def main() -> None:
             model_name=args.model_name,
             device=cuda_device,
             batch_size=args.batch_size,
+            load_dataset_func=load_dataset_func,
             model_torchscript_path=model_torchscript_path,
             use_jit=args.use_jit,
             use_fp16=args.use_fp16,
@@ -76,7 +96,7 @@ def main() -> None:
             model_name=args.model_name,
             device=cuda_device,
             batch_size=args.batch_size,
-            input_size=input_size,
+            load_dataset_func=load_dataset_func,
             model_torchscript_path=model_torchscript_path,
             use_jit=args.use_jit,
             use_fp16=args.use_fp16,
@@ -87,13 +107,16 @@ def main() -> None:
             model_name=args.model_name,
             device=cuda_device,
             batch_size=args.batch_size,
-            input_size=input_size,
+            load_dataset_func=load_dataset_func,
             n_runs=args.n_runs,
+            use_jit=args.use_jit,
+            model_torchscript_path=model_torchscript_path,
         )
     elif args.type == "dynamic_quantization":
         benchmark_dynamic_quantization(
             model_name=args.model_name,
             device=cpu_device,
+            load_dataset_func=load_dataset_func,
             batch_size=args.batch_size,
             n_runs=args.n_runs,
         )
@@ -102,6 +125,7 @@ def main() -> None:
             model_name=args.model_name,
             device=cpu_device,
             batch_size=args.batch_size,
+            load_dataset_func=load_dataset_func,
             name="weight",
             amount=args.pruning_ratio,
             n_runs=args.n_runs,

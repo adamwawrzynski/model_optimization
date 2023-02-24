@@ -1,24 +1,108 @@
 import torch
 import numpy as np
 import torch_tensorrt # to install follow https://github.com/pytorch/TensorRT/issues/1371#issuecomment-1256035010 in version 1.3.0
-from typing import Tuple
+from transformers import BatchEncoding
+from typing import Callable, Union
 import time
 from memory import print_memory_info
+import transformers
 import torchmetrics
 import torch.nn.utils.prune as prune
-from model import CustomLSTM
+from model import CustomLSTM, T5
 from torch.jit import ScriptModule
 from model_utils import load_model, get_model_name, load_torchscript_model
-from dataset_utils import load_dataset
+from dataset_utils import CustomDataset
 
 
 torch_tensorrt.logging.set_reportable_log_level(torch_tensorrt.logging.Level(torch_tensorrt.logging.Level.Error))
+
+
+def prepare_dataset(
+    dataset: torch.utils.data.Dataset,
+    batch_size: int,
+    drop_last: bool,
+    device: torch.device,
+    dtype: str = "fp32",
+):
+    X = []
+    Y = []
+    if not isinstance(dataset, CustomDataset):
+        testloader = torch.utils.data.DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=4,
+            drop_last=drop_last,
+        )
+        dataset = testloader
+
+    for x, y in dataset:
+        X.append(x)
+        Y.append(y)
+
+    for index, _ in enumerate(X):
+        if isinstance(X[index], torch.Tensor):
+            X[index]= X[index].to(device, memory_format=torch.channels_last)
+        else: # for BatchEncoding
+            X[index]= X[index].to(device)
+
+        if dtype == "fp16":
+            if isinstance(X[index], torch.Tensor):
+                X[index] = X[index].half()
+
+    return X, Y
+
+
+def get_model_label(
+    use_fp16: bool,
+    use_jit: bool,
+) -> str:
+    model_label: str = "FP16" if use_fp16 else "FP32"
+    if use_jit:
+        model_label = f"{model_label} JIT"
+
+    return model_label
+
+
+def load_model_based_on_mode(
+    model_name: str,
+    device: torch.device,
+    batch_size: int,
+    model_torchscript_path: str,
+    use_jit: bool,
+):
+    if not use_jit:
+        model = load_model(
+            model_name=model_name,
+            device=device,
+            batch_size=batch_size,
+        ).to(device)
+    else:
+        model = load_torchscript_model(
+            model_torchscript_path=model_torchscript_path,
+            device=device,
+        )
+
+    return model
+
+
+def create_tensorrt_inputs(
+    batch_size: int,
+    sample: Union[transformers.BatchEncoding, torch.Tensor],
+) -> torch_tensorrt.Input:
+    if isinstance(sample, BatchEncoding):
+        inputs = [torch_tensorrt.Input((batch_size, *(val.shape))) for val in sample.values()]
+    elif isinstance(sample, torch.Tensor):
+        inputs = [torch_tensorrt.Input((batch_size, *list(sample.shape)))]
+
+    return inputs
 
 
 def measure_inference_latency(
     model: torch.nn.Module,
     device: torch.device,
     batch_size: int,
+    dataset: torch.utils.data.Dataset,
     n_runs: int,
     dtype: str = "fp32",
     num_warmups: int = 50,
@@ -27,36 +111,27 @@ def measure_inference_latency(
     model.to(device, memory_format=torch.channels_last) # improve performance: https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html#memory-format-api
     model.eval()
 
-    testing_dataset = load_dataset()
-
     drop_last: bool = False
     # for LSTM model in TorchScript size of network is known in advance
     # changing batch_size will cause dimension mismatch
     if isinstance(model, CustomLSTM) or (isinstance(model, ScriptModule) and model.original_name == "CustomLSTM"):
         drop_last = True
 
-    testloader = torch.utils.data.DataLoader(
-        testing_dataset,
+    X, Y = prepare_dataset(
+        dataset=dataset,
         batch_size=batch_size,
-        shuffle=False,
-        num_workers=4,
         drop_last=drop_last,
+        device=device,
+        dtype=dtype,
     )
-    X = []
-    Y = []
-    for x, y in testloader:
-        X.append(x)
-        Y.append(y)
-
     num_samples = len(X)
-    for index, _ in enumerate(X):
-        X[index]= X[index].to(device, memory_format=torch.channels_last)
-        if dtype == "fp16":
-            X[index] = X[index].half()
 
     with torch.no_grad():
         for index in range(num_warmups):
-            _ = model(X[index])
+            if isinstance(X[index], BatchEncoding):
+                _ = model(**X[index])
+            else:
+                _ = model(X[index])
     if "cuda" in device.type:
         torch.cuda.synchronize()
 
@@ -66,23 +141,28 @@ def measure_inference_latency(
             Y_pred = []
             start_time = time.time()
             for index, x in enumerate(X):
-                y_pred = model(x)
+                if isinstance(x, BatchEncoding):
+                    y_pred = model(**x)
+                else:
+                    y_pred = model(x)
                 Y_pred.append(y_pred)
                 if "cuda" in device.type:
                     torch.cuda.synchronize()
 
             end_time = time.time()
-            predicted_class = []
-            for y_pred in Y_pred:
-                predicted_class.append(torch.argmax(y_pred, dim=1))
+            if not isinstance(model, T5) or (isinstance(model, ScriptModule) and model.original_name == "T5"):
+                predicted_class = []
+                for y_pred in Y_pred:
+                    predicted_class.append(torch.argmax(y_pred, dim=1))
 
-        f1 = torchmetrics.F1Score(task="multiclass", num_classes=1000)
-        preds = torch.hstack(predicted_class).flatten().cpu().detach()
-        labels = torch.hstack(Y).flatten()
-        min_length = min(preds.shape[0], labels.shape[0])
-        score = f1(preds[:min_length], labels[:min_length])
-        score_rounded = round(score.cpu().detach().item(), 3)
-        print(f"F1 score: {score_rounded}")
+        if not isinstance(model, T5) or (isinstance(model, ScriptModule) and model.original_name == "T5"):
+            f1 = torchmetrics.F1Score(task="multiclass", num_classes=1000)
+            preds = torch.hstack(predicted_class).flatten().cpu().detach()
+            labels = torch.hstack(Y).flatten()
+            min_length = min(preds.shape[0], labels.shape[0])
+            score = f1(preds[:min_length], labels[:min_length])
+            score_rounded = round(score.cpu().detach().item(), 3)
+            print(f"F1 score: {score_rounded}")
 
         elapsed_time = end_time - start_time
         elapsed_time_ave = elapsed_time / (num_samples * batch_size)
@@ -97,25 +177,28 @@ def benchmark_cpu(
     model_name: str,
     device: torch.device,
     batch_size: int,
+    load_dataset_func: Callable[[], torch.utils.data.Dataset],
     model_torchscript_path: str,
     use_jit: bool,
     n_runs: int,
 ) -> None:
     model_class_name = get_model_name(model_name=model_name, device=device, batch_size=batch_size)
-    if not use_jit:
-        model = load_model(model_name=model_name, device=device, batch_size=batch_size)
-        mode_label: str = "FP32"
-    else:
-        model = load_torchscript_model(
-            model_torchscript_path=model_torchscript_path,
-            device=device,
-        )
-        mode_label: str = "FP32 JIT"
+    dataset = load_dataset_func()
+    mode_label = get_model_label(use_fp16=False, use_jit=use_jit)
+
+    model = load_model_based_on_mode(
+        model_name=model_name,
+        device=device,
+        batch_size=batch_size,
+        model_torchscript_path=model_torchscript_path,
+        use_jit=use_jit,
+    )
 
     inference_time = measure_inference_latency(
         model=model,
         device=device,
         batch_size=batch_size,
+        dataset=dataset,
         n_runs=n_runs,
     )
 
@@ -126,59 +209,51 @@ def benchmark_cuda(
     model_name: str,
     device: torch.device,
     batch_size: int,
+    load_dataset_func,
     model_torchscript_path: str,
     use_jit: bool,
     use_fp16: bool,
     n_runs: int,
 ) -> None:
-    model_class_name = get_model_name(model_name=model_name, device=device, batch_size=batch_size)
-    if not use_jit:
-        model = load_model(model_name=model_name, device=device, batch_size=batch_size)
-        if not use_fp16:
-            inference_time = measure_inference_latency(
-                model=model,
-                device=device,
-                batch_size=batch_size,
-                n_runs=n_runs,
-            )
-            mode_label: str = "FP32"
-        else:
+    model_class_name = get_model_name(
+        model_name=model_name,
+        device=device,
+        batch_size=batch_size,
+    )
+    if use_fp16 and use_jit:
+        torch._C._jit_set_autocast_mode(True)
+
+    model = load_model_based_on_mode(
+        model_name=model_name,
+        device=device,
+        batch_size=batch_size,
+        model_torchscript_path=model_torchscript_path,
+        use_jit=use_jit,
+    )
+    mode_label = get_model_label(use_fp16=use_fp16, use_jit=use_jit)
+    dataset = load_dataset_func()
+
+    if not use_fp16:
+        inference_time = measure_inference_latency(
+            model=model,
+            device=device,
+            batch_size=batch_size,
+            dataset=dataset,
+            n_runs=n_runs,
+        )
+    else:
+        try:
             with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
                 inference_time = measure_inference_latency(
                     model=model,
                     device=device,
                     batch_size=batch_size,
-                    dtype="fp16",
+                    dataset=dataset,
                     n_runs=n_runs,
                 )
-            mode_label: str = "FP16"
-    else:
-        model = load_torchscript_model(
-            model_torchscript_path=model_torchscript_path,
-            device=device,
-        )
-        if not use_fp16:
-            inference_time = measure_inference_latency(
-                model=model,
-                device=device,
-                batch_size=batch_size,
-                n_runs=n_runs,
-            )
-            mode_label: str = "FP32 JIT"
-        else:
-            mode_label: str = "FP16 JIT"
-            torch._C._jit_set_autocast_mode(True)
-            try:
-                with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
-                    inference_time = measure_inference_latency(
-                        model=model,
-                        device=device,
-                        batch_size=batch_size,
-                        n_runs=n_runs,
-                    )
-            except RuntimeError:
-                print(f"[{model_class_name}] {mode_label} {device.type} Inference: RuntimeError")
-                return
+        except RuntimeError:
+            print(f"[{model_class_name}] {mode_label} {device.type} Inference: RuntimeError")
+            return
 
     print(f"[{model_class_name}] {mode_label} {device.type} Inference Latency: {round(inference_time * 1000, 3)} ms / batch ({batch_size} samples) [n_runs={n_runs}]")
     print_memory_info("mb")
@@ -188,38 +263,36 @@ def benchmark_tensorrt(
     model_name: str,
     device: torch.device,
     batch_size: int,
-    input_size: Tuple[int, int, int, int],
+    load_dataset_func: Callable[[], torch.utils.data.Dataset],
     model_torchscript_path: str,
     use_jit: bool,
     use_fp16: bool,
     n_runs: int,
 ) -> None:
     model_class_name = get_model_name(model_name=model_name, device=device, batch_size=batch_size)
+    mode_label = get_model_label(use_fp16=use_fp16, use_jit=use_jit)
+    dataset = load_dataset_func()
+    sample =  dataset[0][0]
+
+    inputs = create_tensorrt_inputs(batch_size=batch_size, sample=sample)
 
     if not use_fp16:
         enabled_precisions = set([torch_tensorrt._enums.dtype.float])
-        mode_label: str = "FP32"
     else:
         enabled_precisions = {torch.float16} # run FP16: https://github.com/pytorch/TensorRT/issues/603
-        mode_label: str = "FP16"
 
-    if not use_jit:
-        model = load_model(model_name=model_name, device=device, batch_size=batch_size).to(device)
-    else:
-        model = load_torchscript_model(
-            model_torchscript_path=model_torchscript_path,
-            device=device,
-        )
-
-        if not use_fp16:
-            mode_label: str = "FP32 JIT"
-        else:
-            mode_label: str = "FP16 JIT"
+    model = load_model_based_on_mode(
+        model_name=model_name,
+        device=device,
+        batch_size=batch_size,
+        model_torchscript_path=model_torchscript_path,
+        use_jit=use_jit,
+    )
 
     # TensorRT usage based on https://developer.nvidia.com/blog/accelerating-inference-up-to-6x-faster-in-pytorch-with-torch-tensorrt/
     trt_model = torch_tensorrt.compile(
-        model,
-        inputs=[torch_tensorrt.Input(input_size)],
+        module=model,
+        inputs=inputs,
         enabled_precisions=enabled_precisions,
         workspace_size=1 << 20, # prevent OutOfMemory error logs: https://github.com/pytorch/TensorRT/issues/603
         device={
@@ -232,6 +305,7 @@ def benchmark_tensorrt(
         model=trt_model,
         device=device,
         batch_size=batch_size,
+        dataset=dataset,
         n_runs=n_runs,
     )
     print(f"[{model_class_name}] {mode_label} {device.type} TRT Inference Latency: {round(inference_time * 1000, 3)} ms / batch ({batch_size} samples) [n_runs={n_runs}]")
@@ -242,17 +316,29 @@ def benchmark_tensorrt_ptq(
     model_name: str,
     device: torch.device,
     batch_size: int,
-    input_size: Tuple[int, int, int, int],
+    load_dataset_func: Callable[[], torch.utils.data.Dataset],
     n_runs: int,
+    use_jit: bool,
+    model_torchscript_path: str,
 ) -> None:
     # PTQ usage based on https://pytorch.org/TensorRT/tutorials/ptq.html#ptq
-    model = load_model(model_name=model_name, device=device, batch_size=batch_size).to(device)
-    model_class_name = model.__class__.__name__
-    cache_file = f"./{model_class_name}.calibration.cache"
+    model_class_name = get_model_name(model_name=model_name, device=device, batch_size=batch_size)
+    if not use_jit:
+        model = load_model(model_name=model_name, device=device, batch_size=batch_size).to(device)
+    else:
+        model = load_torchscript_model(
+            model_torchscript_path=model_torchscript_path,
+            device=device,
+        )
 
-    testing_dataset = load_dataset(use_train=False)
+    cache_file = f"./{model_class_name}.calibration.cache"
+    dataset = load_dataset_func()
+    sample =  dataset[0][0]
+
+    inputs = create_tensorrt_inputs(batch_size=batch_size, sample=sample)
+
     testing_dataloader = torch.utils.data.DataLoader(
-        testing_dataset, batch_size=batch_size, shuffle=False, num_workers=1
+        dataset, batch_size=batch_size, shuffle=False, num_workers=1
     )
     calibrator = torch_tensorrt.ptq.DataLoaderCalibrator(
         testing_dataloader,
@@ -263,8 +349,8 @@ def benchmark_tensorrt_ptq(
     )
 
     trt_pqt_model = torch_tensorrt.compile(
-        model,
-        inputs=[torch_tensorrt.Input(input_size)],
+        module=model,
+        inputs=inputs,
         enabled_precisions={torch.int8},
         calibrator=calibrator,
         workspace_size=1 << 20, # prevent OutOfMemory error logs: https://github.com/pytorch/TensorRT/issues/603
@@ -281,6 +367,7 @@ def benchmark_tensorrt_ptq(
         model=trt_pqt_model,
         device=device,
         batch_size=batch_size,
+        dataset=dataset,
         n_runs=n_runs,
     )
     print(f"[{model_class_name}] UINT8 {device.type} TRT PQT Inference Latency: {round(inference_time * 1000, 3)} ms / batch ({batch_size} samples) [n_runs={n_runs}]")
@@ -291,9 +378,11 @@ def benchmark_dynamic_quantization(
     model_name: str,
     device: torch.device,
     batch_size: int,
+    load_dataset_func: Callable[[], torch.utils.data.Dataset],
     n_runs: int,
 ) -> None:
     model = load_model(model_name=model_name, device=device, batch_size=batch_size)
+    dataset = load_dataset_func()
     model_class_name = model.__class__.__name__
     quantized_model = torch.quantization.quantize_dynamic(
         model=model,
@@ -305,6 +394,7 @@ def benchmark_dynamic_quantization(
         model=quantized_model,
         device=device,
         batch_size=batch_size,
+        dataset=dataset,
         n_runs=n_runs,
     )
     print(f"[{model_class_name}] UINT8 {device.type} Dynamic Quantization Inference Latency: {round(inference_time * 1000, 3)} ms / batch ({batch_size} samples) [n_runs={n_runs}]")
@@ -315,12 +405,14 @@ def benchmark_pruning(
     model_name: str,
     device: torch.device,
     batch_size: int,
+    load_dataset_func: Callable[[], torch.utils.data.Dataset],
     n_runs: int,
     name: str,
     amount: float,
     structural_pruning: bool = False,
 ) -> None:
     model = load_model(model_name=model_name, device=device, batch_size=batch_size)
+    dataset = load_dataset_func()
     model_class_name = model.__class__.__name__
     module_set = set()
     for module in model.modules():
@@ -346,6 +438,7 @@ def benchmark_pruning(
         model=model,
         device=device,
         batch_size=batch_size,
+        dataset=dataset,
         n_runs=n_runs,
     )
     print(f"[{model_class_name}] FP32 {device.type} Unstructured Pruning (amount={amount}) Inference Latency: {round(inference_time * 1000, 3)} ms / batch ({batch_size} samples) [n_runs={n_runs}]")

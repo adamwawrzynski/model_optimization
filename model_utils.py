@@ -1,7 +1,7 @@
 import os
 import torch
 from torchvision.models import resnet18, ResNet18_Weights, MobileNet_V3_Large_Weights, mobilenet_v3_large, swin_t, Swin_T_Weights, vit_b_16, ViT_B_16_Weights
-from model import CustomFCN, CustomCNN, CustomLSTM
+from model import CustomFCN, CustomCNN, CustomLSTM, Bert, T5
 
 
 def get_model_name(model_name: str, device: torch.device, batch_size: int) -> str:
@@ -31,22 +31,33 @@ def load_model(model_name: str, device: torch.device, batch_size: int) -> torch.
             batch_size=batch_size,
             device=device,
         )
+    elif model_name == "bert":
+        model = Bert()
+    elif model_name == "t5":
+        model = T5()
 
     model.eval()
     return model
 
 
-def save_torchscript_model(model: torch.nn.Module, model_torchscript_path: str,) -> None:
+def save_torchscript_model(
+    model: torch.nn.Module,
+    model_torchscript_path: str,
+    example_inputs = None,
+) -> None:
     model_dir = os.path.dirname(model_torchscript_path)
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 
-    torch.jit.save(torch.jit.script(model), model_torchscript_path)
+    if example_inputs is not None:
+        torch.jit.save(torch.jit.trace(model, example_inputs), model_torchscript_path) # it doesn't work with empty example_inputs
+    else:
+        torch.jit.save(torch.jit.script(model, example_inputs=example_inputs), model_torchscript_path)
 
 
 def load_torchscript_model(model_torchscript_path: str, device: torch.device) -> torch.ScriptModule:
-    model = torch.jit.load(model_torchscript_path, map_location=device)
-    model = torch.jit.optimize_for_inference(model.eval()) # this line is essential: https://pytorch.org/docs/stable/generated/torch.jit.optimize_for_inference.html#torch.jit.optimize_for_inference
+    model = torch.jit.load(model_torchscript_path, map_location=device).eval()
+    model = torch.jit.optimize_for_inference(model) # this line is essential: https://pytorch.org/docs/stable/generated/torch.jit.optimize_for_inference.html#torch.jit.optimize_for_inference
     return model
 
 
@@ -55,7 +66,12 @@ def save_torchscript(
     device: torch.device,
     batch_size: int,
     model_torchscript_path: str,
+    example_inputs = None,
 ) -> None:
     model = load_model(model_name=model_name, device=device, batch_size=batch_size)
-    save_torchscript_model(model=model, model_torchscript_path=model_torchscript_path)
+    save_torchscript_model(
+        model=model,
+        model_torchscript_path=model_torchscript_path,
+        example_inputs=example_inputs,
+    )
     del model

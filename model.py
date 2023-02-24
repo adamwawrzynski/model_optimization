@@ -1,8 +1,14 @@
 import torch
+from transformers import BertForSequenceClassification, T5ForConditionalGeneration, AutoTokenizer
 
 
 class CustomFCN(torch.nn.Module):
-    def __init__(self, input_size, hidden_size, num_classes):
+    def __init__(
+        self,
+        input_size: int,
+        hidden_size: int,
+        num_classes: int,
+    ):
         super(CustomFCN, self).__init__()
         self.input_size = input_size
         self.flatten = torch.nn.Flatten()
@@ -34,7 +40,10 @@ class CustomFCN(torch.nn.Module):
 
 
 class CustomCNN(torch.nn.Module):
-    def __init__(self, num_classes):
+    def __init__(
+        self,
+        num_classes: int,
+    ):
         super().__init__()
         self.conv1 = torch.nn.Conv2d(3, 6, 5)
         self.pool1 = torch.nn.MaxPool2d(2, 2)
@@ -72,7 +81,10 @@ class CustomLSTM(torch.nn.Module):
         bidirectional: bool = False,
     ):
         super(CustomLSTM, self).__init__()
-        self.input_size, self.hidden_size, self.layer_size, self.output_size = input_size, hidden_size, layer_size, num_classes
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.layer_size = layer_size
+        self.output_size = num_classes
         self.bidirectional = bidirectional
         self.batch_size = batch_size
         self.device = device
@@ -121,3 +133,45 @@ class CustomLSTM(torch.nn.Module):
         # FNN
         output = self.fnn(output[:, -1, :])
         return output
+
+
+class Bert(torch.nn.Module):
+    def __init__(
+        self,
+        model_name: str = "textattack/bert-base-uncased-imdb"
+    ):
+        super(Bert, self).__init__()
+        self.model = BertForSequenceClassification.from_pretrained(model_name, torchscript=True)
+
+    def forward(self, input_ids, token_type_ids, attention_mask):
+        return self.model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+        )[0]
+
+
+class T5(torch.nn.Module):
+    def __init__(
+        self,
+        model_name: str = "t5-base",
+        max_length: int = 200,
+        min_length: int = 100,
+        num_beams: int = 4,
+    ):
+        super(T5, self).__init__()
+        self.model_name = model_name
+        self.max_length = max_length
+        self.min_length = min_length
+        self.num_beams = num_beams
+        self.model = T5ForConditionalGeneration.from_pretrained(self.model_name, torchscript=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+
+    def forward(self, input_ids, token_type_ids, attention_mask):
+        outputs = self.model.generate(
+            input_ids,
+            max_length=self.max_length,
+            min_length=self.min_length,
+            num_beams=self.num_beams,
+        )
+        return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
