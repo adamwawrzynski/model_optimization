@@ -1,10 +1,11 @@
 import os
 import torch
 import torch_tensorrt # to install follow https://github.com/pytorch/TensorRT/issues/1371#issuecomment-1256035010 in version 1.3.0
-from benchmark import benchmark_cpu, benchmark_cuda, benchmark_tensorrt, benchmark_tensorrt_ptq, benchmark_dynamic_quantization, benchmark_pruning
+from benchmark import BenchmarkCPU, BenchmarkCUDA, BenchmarkTensorDynamicQuantization, BenchmarkTensorPruning, BenchmarkTensorPTQ, BenchmarkTensorRT
 from model_utils import save_torchscript
 from dataset_utils import load_dataset_cv, load_dataset_nlp
 from transformers import BatchEncoding
+from functools import partial
 
 import argparse
 
@@ -22,6 +23,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model_dir", type=str, default="saved_models", help="Directory with saved JIT models.")
     parser.add_argument("--model_filename", type=str, default="model_jit.pth", help="JIT model file name.")
     parser.add_argument("--pruning_ratio", type=float, default=0.2, help="Ratio of model's pruned weights.")
+    parser.add_argument("--pretrained_model_name", type=str, help="Name of a model to load from huggingface.")
     parser.add_argument("--structural_pruning", action="store_true", help="Use structural pruning.")
     return parser.parse_args()
 
@@ -44,7 +46,7 @@ def main() -> None:
     cpu_device = torch.device("cpu:0")
 
     if args.model_name in ["bert", "t5"]:
-        load_dataset_func = load_dataset_nlp
+        load_dataset_func = partial(load_dataset_nlp, model_name=args.pretrained_model_name)
     else:
         load_dataset_func = load_dataset_cv
 
@@ -68,17 +70,18 @@ def main() -> None:
 
     # compute inference time, CUDA memory usage and F1 score
     if args.type == "cpu":
-        benchmark_cpu(
+        BenchmarkCPU().measure_time(
             model_name=args.model_name,
             device=cpu_device,
             batch_size=args.batch_size,
             load_dataset_func=load_dataset_func,
             model_torchscript_path=model_torchscript_path,
             use_jit=args.use_jit,
+            use_fp16=args.use_fp16,
             n_runs=args.n_runs,
         )
     elif args.type == "cuda":
-        benchmark_cuda(
+        BenchmarkCUDA().measure_time(
             model_name=args.model_name,
             device=cuda_device,
             batch_size=args.batch_size,
@@ -89,7 +92,7 @@ def main() -> None:
             n_runs=args.n_runs,
         )
     elif args.type == "tensorrt":
-        benchmark_tensorrt(
+        BenchmarkTensorRT().measure_time(
             model_name=args.model_name,
             device=cuda_device,
             batch_size=args.batch_size,
@@ -100,32 +103,39 @@ def main() -> None:
             n_runs=args.n_runs,
         )
     elif args.type == "quantization":
-        benchmark_tensorrt_ptq(
+        BenchmarkTensorPTQ().measure_time(
             model_name=args.model_name,
             device=cuda_device,
             batch_size=args.batch_size,
             load_dataset_func=load_dataset_func,
-            n_runs=args.n_runs,
             use_jit=args.use_jit,
+            use_fp16=args.use_fp16,
+            n_runs=args.n_runs,
             model_torchscript_path=model_torchscript_path,
         )
     elif args.type == "dynamic_quantization":
-        benchmark_dynamic_quantization(
+        BenchmarkTensorDynamicQuantization().measure_time(
             model_name=args.model_name,
             device=cpu_device,
             load_dataset_func=load_dataset_func,
             batch_size=args.batch_size,
+            model_torchscript_path=model_torchscript_path,
+            use_jit=args.use_jit,
+            use_fp16=args.use_fp16,
             n_runs=args.n_runs,
         )
     elif args.type == "pruning":
-        benchmark_pruning(
+        BenchmarkTensorPruning().measure_time(
             model_name=args.model_name,
             device=cpu_device,
             batch_size=args.batch_size,
+            model_torchscript_path=model_torchscript_path,
             load_dataset_func=load_dataset_func,
+            use_jit=args.use_jit,
+            use_fp16=args.use_fp16,
+            n_runs=args.n_runs,
             name="weight",
             amount=args.pruning_ratio,
-            n_runs=args.n_runs,
             structural_pruning=args.structural_pruning,
         )
 

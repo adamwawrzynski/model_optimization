@@ -29,6 +29,7 @@ at the top of the `run_benchmark.sh` script. The content of this script is as fo
 #!/bin/bash
 
 MODEL_NAME="resnet"
+PRETRAINED_MODEL_NAME="textattack/bert-base-uncased-imdb"
 N_RUNS="5"
 ...
 ```
