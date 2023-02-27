@@ -51,13 +51,10 @@ def main() -> None:
     dataset = load_dataset_func()
     example_inputs = dataset[0][0]
     if isinstance(example_inputs, BatchEncoding):
-        example_inputs = [
-            example_inputs["input_ids"],
-            example_inputs["token_type_ids"],
-            example_inputs["attention_mask"],
-        ]
+        example_inputs = list(example_inputs.values())
     else:
         example_inputs = None
+
 
     # save model's torchscript .pth file
     model_torchscript_path: str = os.path.join(args.model_dir, args.model_filename)

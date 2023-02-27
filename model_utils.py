@@ -50,14 +50,15 @@ def save_torchscript_model(
         os.makedirs(model_dir)
 
     if example_inputs is not None:
-        torch.jit.save(torch.jit.trace(model, example_inputs), model_torchscript_path) # it doesn't work with empty example_inputs
+        traced_model = torch.jit.trace(model, example_inputs=example_inputs)  # it doesn't work with empty example_inputs
     else:
-        torch.jit.save(torch.jit.script(model, example_inputs=example_inputs), model_torchscript_path)
+        traced_model = torch.jit.script(model, example_inputs=example_inputs)
 
+    torch.jit.save(traced_model, model_torchscript_path)
 
 def load_torchscript_model(model_torchscript_path: str, device: torch.device) -> torch.ScriptModule:
-    model = torch.jit.load(model_torchscript_path, map_location=device).eval()
-    model = torch.jit.optimize_for_inference(model) # this line is essential: https://pytorch.org/docs/stable/generated/torch.jit.optimize_for_inference.html#torch.jit.optimize_for_inference
+    model = torch.jit.load(model_torchscript_path, map_location=device)
+    model = torch.jit.optimize_for_inference(model).eval() # this line is essential: https://pytorch.org/docs/stable/generated/torch.jit.optimize_for_inference.html#torch.jit.optimize_for_inference
     return model
 
 

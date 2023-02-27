@@ -167,7 +167,7 @@ class T5(torch.nn.Module):
         self.model = T5ForConditionalGeneration.from_pretrained(self.model_name, torchscript=True)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
 
-    def forward(self, input_ids, token_type_ids, attention_mask):
+    def forward(self, input_ids, attention_mask):
         outputs = self.model.generate(
             input_ids,
             max_length=self.max_length,
