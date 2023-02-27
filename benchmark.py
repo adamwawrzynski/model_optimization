@@ -2,9 +2,10 @@ import torch
 import numpy as np
 import torch_tensorrt # to install follow https://github.com/pytorch/TensorRT/issues/1371#issuecomment-1256035010 in version 1.3.0
 from transformers import BatchEncoding
-from typing import Callable, Union
+from typing import Union
 import time
 from abc import abstractmethod, ABC
+from dataset_utils import DatasetFactory
 from memory import print_memory_info
 import transformers
 import torchmetrics
@@ -196,7 +197,7 @@ class Benchmark(ABC):
         model_name: str,
         device: torch.device,
         batch_size: int,
-        load_dataset_func: Callable[[], torch.utils.data.Dataset],
+        dataset_factory: DatasetFactory,
         model_torchscript_path: str,
         use_jit: bool,
         use_fp16: bool,
@@ -205,26 +206,28 @@ class Benchmark(ABC):
     ) -> float:
         ...
 
-    def __call__(
+    def benchmark(
         self,
         model_name: str,
         device: torch.device,
         batch_size: int,
-        load_dataset_func: Callable[[], torch.utils.data.Dataset],
+        dataset_factory: DatasetFactory,
         model_torchscript_path: str,
         use_jit: bool,
         use_fp16: bool,
         n_runs: int,
+        **kwargs,
     ) -> None:
         inference_time = self.measure_time(
             model_name=model_name,
             device=device,
             batch_size=batch_size,
-            load_dataset_func=load_dataset_func,
+            dataset_factory=dataset_factory,
             model_torchscript_path=model_torchscript_path,
             use_jit=use_jit,
             use_fp16=use_fp16,
             n_runs=n_runs,
+            **kwargs,
         )
         model_class_name = get_model_name(
             model_name=model_name,
@@ -242,7 +245,7 @@ class Benchmark(ABC):
             batch_size=batch_size,
             n_runs=n_runs,
         )
-        
+
 
 class BenchmarkCPU(Benchmark):
     def measure_time(
@@ -250,14 +253,14 @@ class BenchmarkCPU(Benchmark):
         model_name: str,
         device: torch.device,
         batch_size: int,
-        load_dataset_func: Callable[[], torch.utils.data.Dataset],
+        dataset_factory: DatasetFactory,
         model_torchscript_path: str,
         use_jit: bool,
         use_fp16: bool,
         n_runs: int,
         **kwargs,
     ) -> float:
-        dataset = load_dataset_func()
+        dataset = dataset_factory.get_dataset()
         model = load_model_based_on_mode(
             model_name=model_name,
             device=device,
@@ -282,7 +285,7 @@ class BenchmarkCUDA(Benchmark):
         model_name: str,
         device: torch.device,
         batch_size: int,
-        load_dataset_func: Callable[[], torch.utils.data.Dataset],
+        dataset_factory: DatasetFactory,
         model_torchscript_path: str,
         use_jit: bool,
         use_fp16: bool,
@@ -299,7 +302,7 @@ class BenchmarkCUDA(Benchmark):
             model_torchscript_path=model_torchscript_path,
             use_jit=use_jit,
         )
-        dataset = load_dataset_func()
+        dataset = dataset_factory.get_dataset()
 
         if not use_fp16:
             inference_time = measure_inference_latency(
@@ -327,14 +330,14 @@ class BenchmarkTensorRT(Benchmark):
         model_name: str,
         device: torch.device,
         batch_size: int,
-        load_dataset_func: Callable[[], torch.utils.data.Dataset],
+        dataset_factory: DatasetFactory,
         model_torchscript_path: str,
         use_jit: bool,
         use_fp16: bool,
         n_runs: int,
         **kwargs,
     ) -> float:
-        dataset = load_dataset_func()
+        dataset = dataset_factory.get_dataset()
         sample =  dataset[0][0]
 
         inputs = create_tensorrt_inputs(batch_size=batch_size, sample=sample)
@@ -380,14 +383,14 @@ class BenchmarkTensorPTQ(Benchmark):
         model_name: str,
         device: torch.device,
         batch_size: int,
-        load_dataset_func: Callable[[], torch.utils.data.Dataset],
+        dataset_factory: DatasetFactory,
         model_torchscript_path: str,
         use_jit: bool,
         use_fp16: bool,
         n_runs: int,
         **kwargs,
     ) -> None:
-        dataset = load_dataset_func()
+        dataset = dataset_factory.get_dataset()
         sample =  dataset[0][0]
 
         # PTQ usage based on https://pytorch.org/TensorRT/tutorials/ptq.html#ptq
@@ -447,7 +450,7 @@ class BenchmarkTensorDynamicQuantization(Benchmark):
         model_name: str,
         device: torch.device,
         batch_size: int,
-        load_dataset_func: Callable[[], torch.utils.data.Dataset],
+        dataset_factory: DatasetFactory,
         model_torchscript_path: str,
         use_jit: bool,
         use_fp16: bool,
@@ -455,7 +458,7 @@ class BenchmarkTensorDynamicQuantization(Benchmark):
         **kwargs,
     ) -> None:
         model = load_model(model_name=model_name, device=device, batch_size=batch_size)
-        dataset = load_dataset_func()
+        dataset = dataset_factory.get_dataset()
         quantized_model = torch.quantization.quantize_dynamic(
             model=model,
             qconfig_spec={torch.nn.Conv2d},
@@ -478,7 +481,7 @@ class BenchmarkTensorPruning(Benchmark):
         model_name: str,
         device: torch.device,
         batch_size: int,
-        load_dataset_func: Callable[[], torch.utils.data.Dataset],
+        dataset_factory: DatasetFactory,
         model_torchscript_path: str,
         use_jit: bool,
         use_fp16: bool,
@@ -489,7 +492,7 @@ class BenchmarkTensorPruning(Benchmark):
         **kwargs,
     ) -> None:
         model = load_model(model_name=model_name, device=device, batch_size=batch_size)
-        dataset = load_dataset_func()
+        dataset = dataset_factory.get_dataset()
         module_set = set()
         for module in model.modules():
             if isinstance(module, torch.nn.Linear) or isinstance(module, torch.nn.Conv2d):
