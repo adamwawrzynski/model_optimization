@@ -10,7 +10,7 @@ from memory import print_memory_info
 import transformers
 import torchmetrics
 import torch.nn.utils.prune as prune
-from model import CustomLSTM, T5
+from model import CustomLSTM, T5, GPTNeo
 from torch.jit import ScriptModule
 from model_utils import load_model, get_model_name, load_torchscript_model
 from dataset_utils import CustomDataset
@@ -152,12 +152,12 @@ def measure_inference_latency(
                     torch.cuda.synchronize()
 
             end_time = time.time()
-            if not isinstance(model, T5) or (isinstance(model, ScriptModule) and model.original_name == "T5"):
+            if (not isinstance(model, T5) or (isinstance(model, ScriptModule) and model.original_name == "T5")) and (not isinstance(model, GPTNeo) or (isinstance(model, ScriptModule) and model.original_name == "GPTNeo")):
                 predicted_class = []
                 for y_pred in Y_pred:
                     predicted_class.append(torch.argmax(y_pred, dim=1))
 
-        if not isinstance(model, T5) or (isinstance(model, ScriptModule) and model.original_name == "T5"):
+        if (not isinstance(model, T5) or (isinstance(model, ScriptModule) and model.original_name == "T5")) and (not isinstance(model, GPTNeo) or (isinstance(model, ScriptModule) and model.original_name == "GPTNeo")):
             f1 = torchmetrics.F1Score(task="multiclass", num_classes=1000)
             preds = torch.hstack(predicted_class).flatten().cpu().detach()
             labels = torch.hstack(Y).flatten()
@@ -325,6 +325,7 @@ class BenchmarkCUDA(Benchmark):
 
         return inference_time
 
+
 class BenchmarkTensorRT(Benchmark):
     def measure_time(
         self,
@@ -442,7 +443,6 @@ class BenchmarkTensorPTQ(Benchmark):
             n_runs=n_runs,
         )
         return inference_time
-
 
 
 class BenchmarkTensorDynamicQuantization(Benchmark):

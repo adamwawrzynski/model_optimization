@@ -1,7 +1,7 @@
 import os
 import torch
 from torchvision.models import resnet18, ResNet18_Weights, MobileNet_V3_Large_Weights, mobilenet_v3_large, swin_t, Swin_T_Weights, vit_b_16, ViT_B_16_Weights
-from model import CustomFCN, CustomCNN, CustomLSTM, Bert, T5
+from model import CustomFCN, CustomCNN, CustomLSTM, Bert, T5, GPTNeo
 
 
 def get_model_name(model_name: str, device: torch.device, batch_size: int) -> str:
@@ -35,6 +35,8 @@ def load_model(model_name: str, device: torch.device, batch_size: int) -> torch.
         model = Bert()
     elif model_name == "t5":
         model = T5()
+    elif model_name == "gptneo":
+        model = GPTNeo()
 
     model.eval()
     return model
@@ -57,8 +59,8 @@ def save_torchscript_model(
     torch.jit.save(traced_model, model_torchscript_path)
 
 def load_torchscript_model(model_torchscript_path: str, device: torch.device) -> torch.ScriptModule:
-    model = torch.jit.load(model_torchscript_path, map_location=device)
-    model = torch.jit.optimize_for_inference(model).eval() # this line is essential: https://pytorch.org/docs/stable/generated/torch.jit.optimize_for_inference.html#torch.jit.optimize_for_inference
+    model = torch.jit.load(model_torchscript_path, map_location=device).eval()
+    model = torch.jit.optimize_for_inference(model) # this line is essential: https://pytorch.org/docs/stable/generated/torch.jit.optimize_for_inference.html#torch.jit.optimize_for_inference
     return model
 
 

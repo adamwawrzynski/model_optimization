@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple
 import torch
 import torchvision
 from torchvision import transforms
-from transformers import AutoTokenizer, BatchEncoding
+from transformers import AutoTokenizer, BatchEncoding, GPT2Tokenizer, GPT2TokenizerFast
 from datasets import load_dataset
 from more_itertools import chunked
 
@@ -78,6 +78,11 @@ class DatasetIMDBFactory(DatasetFactory):
 
     def get_dataset(self) -> torch.utils.data.Dataset:
         tokenizer = AutoTokenizer.from_pretrained(self.pretrained_model_name, model_max_length=self.max_length)
+
+        # PAD_TOKEN is not set by default; set PAD_TOKEN for GPT model
+        if isinstance(tokenizer, GPT2Tokenizer) or isinstance(tokenizer, GPT2TokenizerFast):
+            tokenizer.pad_token = tokenizer.eos_token
+
         dataset = load_dataset(path="imdb")
 
         samples: List[BatchEncoding] = []

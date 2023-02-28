@@ -12,7 +12,7 @@ torch_tensorrt.logging.set_reportable_log_level(torch_tensorrt.logging.Level(tor
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("Benchmark model optimization techniques")
     parser.add_argument("--type", choices=["cpu", "cuda", "tensorrt", "quantization", "dynamic_quantization", "pruning"], required=True, help="Model's operation type.")
-    parser.add_argument("--model_name", choices=["swin_t", "vit", "resnet", "mobilenet", "fcn", "cnn", "rnn", "bert", "t5"], required=True, help="Model's name.")
+    parser.add_argument("--model_name", choices=["swin_t", "vit", "resnet", "mobilenet", "fcn", "cnn", "rnn", "bert", "t5", "gptneo"], required=True, help="Model's name.")
     parser.add_argument("--use_fp16", action="store_true", help="Use half precision model.")
     parser.add_argument("--use_jit", action="store_true", help="Use JIT model.")
     parser.add_argument("--batch_size", type=int, default=1, help="Size of processed batch.")
@@ -23,7 +23,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--pretrained_model_name", type=str, help="Name of a model to load from huggingface.")
     parser.add_argument("--structural_pruning", action="store_true", help="Use structural pruning.")
 
-    parser.add_argument("--max_length", type=int, default=200, help="Max processed text in number of tokens.")
+    parser.add_argument("--max_length", type=int, default=100, help="Max processed text in number of tokens.")
     parser.add_argument("--data_dir", type=str, default="data/", help="ImageNet-Mini dataset root dir.")
     parser.add_argument("--subset_name", type=str, default="val", help="Subset of ImageNet-Mini dataset: val or train.")
     parser.add_argument("--dataset_size", type=int, default=150, help="Numbero of samples from IMDB dataset to use.")
@@ -49,7 +49,7 @@ def main() -> None:
     cpu_device = torch.device("cpu:0")
 
     dataset_factory: DatasetFactory
-    if args.model_name in ["bert", "t5"]:
+    if args.model_name in ["bert", "t5", "gptneo"]:
         dataset_factory = DatasetIMDBFactory(
             pretrained_model_name=args.pretrained_model_name,
             dataset_size=args.dataset_size,

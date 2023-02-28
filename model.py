@@ -1,5 +1,5 @@
 import torch
-from transformers import BertForSequenceClassification, T5ForConditionalGeneration, AutoTokenizer
+from transformers import BertForSequenceClassification, T5ForConditionalGeneration, AutoTokenizer, GPTNeoForCausalLM
 
 
 class CustomFCN(torch.nn.Module):
@@ -165,7 +165,6 @@ class T5(torch.nn.Module):
         self.min_length = min_length
         self.num_beams = num_beams
         self.model = T5ForConditionalGeneration.from_pretrained(self.model_name, torchscript=True)
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
 
     def forward(self, input_ids, attention_mask):
         outputs = self.model.generate(
@@ -174,4 +173,30 @@ class T5(torch.nn.Module):
             min_length=self.min_length,
             num_beams=self.num_beams,
         )
-        return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        return outputs[0]
+
+
+class GPTNeo(torch.nn.Module):
+    def __init__(
+        self,
+        model_name: str = "EleutherAI/gpt-neo-125M",
+        max_length: int = 200,
+        min_length: int = 100,
+        num_beams: int = 4,
+    ):
+        super(GPTNeo, self).__init__()
+        self.model_name = model_name
+        self.max_length = max_length
+        self.min_length = min_length
+        self.num_beams = num_beams
+        self.model = GPTNeoForCausalLM.from_pretrained(self.model_name, torchscript=True)
+
+    def forward(self, input_ids, attention_mask):
+        outputs = self.model.generate(
+            input_ids,
+            attention_mask=attention_mask,
+            max_length=self.max_length,
+            min_length=self.min_length,
+            num_beams=self.num_beams,
+        )
+        return outputs[0]
