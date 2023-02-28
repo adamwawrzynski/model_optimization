@@ -245,6 +245,7 @@ class Benchmark(ABC):
             batch_size=batch_size,
             n_runs=n_runs,
         )
+        self.measure_vram()
 
 
 class BenchmarkCPU(Benchmark):
