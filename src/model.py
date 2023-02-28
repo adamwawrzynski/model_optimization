@@ -1,5 +1,10 @@
 import torch
-from transformers import BertForSequenceClassification, T5ForConditionalGeneration, AutoTokenizer, GPTNeoForCausalLM
+from transformers import (
+    AutoTokenizer,
+    BertForSequenceClassification,
+    GPTNeoForCausalLM,
+    T5ForConditionalGeneration,
+)
 
 
 class CustomFCN(torch.nn.Module):
@@ -12,16 +17,16 @@ class CustomFCN(torch.nn.Module):
         super(CustomFCN, self).__init__()
         self.input_size = input_size
         self.flatten = torch.nn.Flatten()
-        self.layer_1 = torch.nn.Linear(input_size, hidden_size) 
+        self.layer_1 = torch.nn.Linear(input_size, hidden_size)
         self.relu_1 = torch.nn.ReLU()
         self.dropout_1 = torch.nn.Dropout(0.2)
-        self.layer_2 = torch.nn.Linear(hidden_size, hidden_size) 
+        self.layer_2 = torch.nn.Linear(hidden_size, hidden_size)
         self.relu_2 = torch.nn.ReLU()
         self.dropout_2 = torch.nn.Dropout(0.2)
-        self.layer_3 = torch.nn.Linear(hidden_size, hidden_size) 
+        self.layer_3 = torch.nn.Linear(hidden_size, hidden_size)
         self.relu_3 = torch.nn.ReLU()
         self.dropout_3 = torch.nn.Dropout(0.2)
-        self.layer_4 = torch.nn.Linear(hidden_size, num_classes)  
+        self.layer_4 = torch.nn.Linear(hidden_size, num_classes)
 
     def forward(self, x):
         x = self.flatten(x)
@@ -61,7 +66,7 @@ class CustomCNN(torch.nn.Module):
         x = self.pool2(torch.nn.functional.relu(self.conv2(x)))
         x = self.pool3(torch.nn.functional.relu(self.conv3(x)))
         x = torch.nn.functional.relu(self.conv4(x))
-        x = torch.flatten(x, 1) # flatten all dimensions except batch
+        x = torch.flatten(x, 1)  # flatten all dimensions except batch
         x = torch.nn.functional.relu(self.fc1(x))
         x = torch.nn.functional.relu(self.fc2(x))
         x = self.fc3(x)
@@ -90,7 +95,7 @@ class CustomLSTM(torch.nn.Module):
         self.device = device
 
         self.lstm = torch.nn.LSTM(
-            input_size*input_size,
+            input_size * input_size,
             hidden_size,
             layer_size,
             batch_first=True,
@@ -125,7 +130,6 @@ class CustomLSTM(torch.nn.Module):
                 self.hidden_size,
             ).to(self.device)
 
-
     def forward(self, x):
         x = x.reshape(x.shape[0], x.shape[1], -1)
         output, _ = self.lstm(x, (self.hidden_state, self.cell_state))
@@ -136,12 +140,11 @@ class CustomLSTM(torch.nn.Module):
 
 
 class Bert(torch.nn.Module):
-    def __init__(
-        self,
-        model_name: str = "textattack/bert-base-uncased-imdb"
-    ):
+    def __init__(self, model_name: str = "textattack/bert-base-uncased-imdb"):
         super(Bert, self).__init__()
-        self.model = BertForSequenceClassification.from_pretrained(model_name, torchscript=True)
+        self.model = BertForSequenceClassification.from_pretrained(
+            model_name, torchscript=True
+        )
 
     def forward(self, input_ids, token_type_ids, attention_mask):
         return self.model(
@@ -164,7 +167,9 @@ class T5(torch.nn.Module):
         self.max_length = max_length
         self.min_length = min_length
         self.num_beams = num_beams
-        self.model = T5ForConditionalGeneration.from_pretrained(self.model_name, torchscript=True)
+        self.model = T5ForConditionalGeneration.from_pretrained(
+            self.model_name, torchscript=True
+        )
 
     def forward(self, input_ids, attention_mask):
         outputs = self.model.generate(
@@ -189,7 +194,9 @@ class GPTNeo(torch.nn.Module):
         self.max_length = max_length
         self.min_length = min_length
         self.num_beams = num_beams
-        self.model = GPTNeoForCausalLM.from_pretrained(self.model_name, torchscript=True)
+        self.model = GPTNeoForCausalLM.from_pretrained(
+            self.model_name, torchscript=True
+        )
 
     def forward(self, input_ids, attention_mask):
         outputs = self.model.generate(

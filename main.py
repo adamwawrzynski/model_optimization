@@ -1,39 +1,129 @@
-import os
-import torch
-import torch_tensorrt # to install follow https://github.com/pytorch/TensorRT/issues/1371#issuecomment-1256035010 in version 1.3.0
-from benchmark import BenchmarkCPU, BenchmarkCUDA, BenchmarkTensorDynamicQuantization, BenchmarkTensorPruning, BenchmarkTensorPTQ, BenchmarkTensorRT
-from model_utils import save_torchscript
-from dataset_utils import DatasetFactory, DatasetImagenetMiniFactory, DatasetIMDBFactory
 import argparse
+import os
 
-torch_tensorrt.logging.set_reportable_log_level(torch_tensorrt.logging.Level(torch_tensorrt.logging.Level.Error))
+import torch
+import torch_tensorrt  # to install follow https://github.com/pytorch/TensorRT/issues/1371#issuecomment-1256035010 in version 1.3.0
+
+from src.benchmark import (
+    BenchmarkCPU,
+    BenchmarkCUDA,
+    BenchmarkTensorDynamicQuantization,
+    BenchmarkTensorPruning,
+    BenchmarkTensorPTQ,
+    BenchmarkTensorRT,
+)
+from src.dataset_utils import (
+    DatasetFactory,
+    DatasetImagenetMiniFactory,
+    DatasetIMDBFactory,
+)
+from src.model_utils import save_torchscript
+
+torch_tensorrt.logging.set_reportable_log_level(
+    torch_tensorrt.logging.Level(torch_tensorrt.logging.Level.Error)
+)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("Benchmark model optimization techniques")
-    parser.add_argument("--type", choices=["cpu", "cuda", "tensorrt", "quantization", "dynamic_quantization", "pruning"], required=True, help="Model's operation type.")
-    parser.add_argument("--model_name", choices=["swin_t", "vit", "resnet", "mobilenet", "fcn", "cnn", "rnn", "bert", "t5", "gptneo"], required=True, help="Model's name.")
-    parser.add_argument("--use_fp16", action="store_true", help="Use half precision model.")
+    parser.add_argument(
+        "--type",
+        choices=[
+            "cpu",
+            "cuda",
+            "tensorrt",
+            "quantization",
+            "dynamic_quantization",
+            "pruning",
+        ],
+        required=True,
+        help="Model's operation type.",
+    )
+    parser.add_argument(
+        "--model_name",
+        choices=[
+            "swin_t",
+            "vit",
+            "resnet",
+            "mobilenet",
+            "fcn",
+            "cnn",
+            "rnn",
+            "bert",
+            "t5",
+            "gptneo",
+        ],
+        required=True,
+        help="Model's name.",
+    )
+    parser.add_argument(
+        "--use_fp16", action="store_true", help="Use half precision model."
+    )
     parser.add_argument("--use_jit", action="store_true", help="Use JIT model.")
-    parser.add_argument("--batch_size", type=int, default=1, help="Size of processed batch.")
-    parser.add_argument("--n_runs", type=int, default=1, help="Number of runs to compute mean of inference times.")
-    parser.add_argument("--model_dir", type=str, default="saved_models", help="Directory with saved JIT models.")
-    parser.add_argument("--model_filename", type=str, default="model_jit.pth", help="JIT model file name.")
-    parser.add_argument("--pruning_ratio", type=float, default=0.2, help="Ratio of model's pruned weights.")
-    parser.add_argument("--pretrained_model_name", type=str, help="Name of a model to load from huggingface.")
-    parser.add_argument("--structural_pruning", action="store_true", help="Use structural pruning.")
+    parser.add_argument(
+        "--batch_size", type=int, default=1, help="Size of processed batch."
+    )
+    parser.add_argument(
+        "--n_runs",
+        type=int,
+        default=1,
+        help="Number of runs to compute mean of inference times.",
+    )
+    parser.add_argument(
+        "--model_dir",
+        type=str,
+        default="saved_models",
+        help="Directory with saved JIT models.",
+    )
+    parser.add_argument(
+        "--model_filename",
+        type=str,
+        default="model_jit.pth",
+        help="JIT model file name.",
+    )
+    parser.add_argument(
+        "--pruning_ratio",
+        type=float,
+        default=0.2,
+        help="Ratio of model's pruned weights.",
+    )
+    parser.add_argument(
+        "--pretrained_model_name",
+        type=str,
+        help="Name of a model to load from huggingface.",
+    )
+    parser.add_argument(
+        "--structural_pruning", action="store_true", help="Use structural pruning."
+    )
 
-    parser.add_argument("--max_length", type=int, default=100, help="Max processed text in number of tokens.")
-    parser.add_argument("--data_dir", type=str, default="data/", help="ImageNet-Mini dataset root dir.")
-    parser.add_argument("--subset_name", type=str, default="val", help="Subset of ImageNet-Mini dataset: val or train.")
-    parser.add_argument("--dataset_size", type=int, default=150, help="Numbero of samples from IMDB dataset to use.")
+    parser.add_argument(
+        "--max_length",
+        type=int,
+        default=100,
+        help="Max processed text in number of tokens.",
+    )
+    parser.add_argument(
+        "--data_dir", type=str, default="data/", help="ImageNet-Mini dataset root dir."
+    )
+    parser.add_argument(
+        "--subset_name",
+        type=str,
+        default="val",
+        help="Subset of ImageNet-Mini dataset: val or train.",
+    )
+    parser.add_argument(
+        "--dataset_size",
+        type=int,
+        default=150,
+        help="Numbero of samples from IMDB dataset to use.",
+    )
 
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    torch.backends.cudnn.benchmark = True # has influence on performance on CNNs: https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#enable-cudnn-auto-tuner
+    torch.backends.cudnn.benchmark = True  # has influence on performance on CNNs: https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#enable-cudnn-auto-tuner
 
     # https://pytorch.org/docs/stable/amp.html
 

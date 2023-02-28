@@ -1,12 +1,13 @@
 import os
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
+
 import torch
 import torchvision
-from torchvision import transforms
-from transformers import AutoTokenizer, BatchEncoding, GPT2Tokenizer, GPT2TokenizerFast
 from datasets import load_dataset
 from more_itertools import chunked
+from torchvision import transforms
+from transformers import AutoTokenizer, BatchEncoding, GPT2Tokenizer, GPT2TokenizerFast
 
 
 class CustomDataset(torch.utils.data.Dataset):
@@ -33,6 +34,7 @@ class DatasetFactory(ABC):
             example_inputs = list(sample.values())
 
         return example_inputs
+
 
 class DatasetImagenetMiniFactory(DatasetFactory):
     def __init__(
@@ -77,18 +79,40 @@ class DatasetIMDBFactory(DatasetFactory):
         self.batch_size = batch_size
 
     def get_dataset(self) -> torch.utils.data.Dataset:
-        tokenizer = AutoTokenizer.from_pretrained(self.pretrained_model_name, model_max_length=self.max_length)
+        tokenizer = AutoTokenizer.from_pretrained(
+            self.pretrained_model_name, model_max_length=self.max_length
+        )
 
         # PAD_TOKEN is not set by default; set PAD_TOKEN for GPT model
-        if isinstance(tokenizer, GPT2Tokenizer) or isinstance(tokenizer, GPT2TokenizerFast):
+        if isinstance(tokenizer, GPT2Tokenizer) or isinstance(
+            tokenizer, GPT2TokenizerFast
+        ):
             tokenizer.pad_token = tokenizer.eos_token
 
         dataset = load_dataset(path="imdb")
 
         samples: List[BatchEncoding] = []
         labels: List[torch.Tensor] = []
-        sample_batches = list(chunked([d["text"] for index, d in enumerate(dataset["test"]) if index < self.dataset_size], self.batch_size))
-        label_batches = list(chunked([d["label"] for index, d in enumerate(dataset["test"]) if index < self.dataset_size], self.batch_size))
+        sample_batches = list(
+            chunked(
+                [
+                    d["text"]
+                    for index, d in enumerate(dataset["test"])
+                    if index < self.dataset_size
+                ],
+                self.batch_size,
+            )
+        )
+        label_batches = list(
+            chunked(
+                [
+                    d["label"]
+                    for index, d in enumerate(dataset["test"])
+                    if index < self.dataset_size
+                ],
+                self.batch_size,
+            )
+        )
 
         for x_batch, y_batch in zip(sample_batches, label_batches):
             batch_encoding_sample = tokenizer(
