@@ -1,3 +1,5 @@
+# pylint: disable = (missing-module-docstring)
+
 import os
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
@@ -11,6 +13,8 @@ from transformers import AutoTokenizer, BatchEncoding, GPT2Tokenizer, GPT2Tokeni
 
 
 class CustomDataset(torch.utils.data.Dataset):
+    """Custom Datasets class for ImageNet-Mini dataset."""
+
     def __init__(self, data: List[BatchEncoding], labels: List[torch.Tensor]):
         self.data = data
         self.labels = labels
@@ -23,6 +27,8 @@ class CustomDataset(torch.utils.data.Dataset):
 
 
 class DatasetFactory(ABC):
+    """Factory class that returns Dataset class."""
+
     @abstractmethod
     def get_dataset(self) -> torch.utils.data.Dataset:
         ...
@@ -37,6 +43,8 @@ class DatasetFactory(ABC):
 
 
 class DatasetImagenetMiniFactory(DatasetFactory):
+    """ImageNet-Mini dataset factory class."""
+
     def __init__(
         self,
         data_dir: str,
@@ -66,6 +74,8 @@ class DatasetImagenetMiniFactory(DatasetFactory):
 
 
 class DatasetIMDBFactory(DatasetFactory):
+    """IMDB dataset factory class."""
+
     def __init__(
         self,
         pretrained_model_name: str,
@@ -84,9 +94,7 @@ class DatasetIMDBFactory(DatasetFactory):
         )
 
         # PAD_TOKEN is not set by default; set PAD_TOKEN for GPT model
-        if isinstance(tokenizer, GPT2Tokenizer) or isinstance(
-            tokenizer, GPT2TokenizerFast
-        ):
+        if isinstance(tokenizer, (GPT2Tokenizer, GPT2TokenizerFast)):
             tokenizer.pad_token = tokenizer.eos_token
 
         dataset = load_dataset(path="imdb")
@@ -123,6 +131,6 @@ class DatasetIMDBFactory(DatasetFactory):
                 padding=True,
             )
             samples.append(batch_encoding_sample)
-            labels.append(torch.tensor(y_batch))
+            labels.append(torch.tensor(y_batch))  # pylint: disable = (no-member)
 
         return CustomDataset(data=samples, labels=labels)

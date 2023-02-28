@@ -1,6 +1,7 @@
+# pylint: disable = (missing-module-docstring)
+
 import torch
 from transformers import (
-    AutoTokenizer,
     BertForSequenceClassification,
     GPTNeoForCausalLM,
     T5ForConditionalGeneration,
@@ -8,13 +9,15 @@ from transformers import (
 
 
 class CustomFCN(torch.nn.Module):
+    """Custom fully connected network."""
+
     def __init__(
         self,
         input_size: int,
         hidden_size: int,
         num_classes: int,
     ):
-        super(CustomFCN, self).__init__()
+        super().__init__()
         self.input_size = input_size
         self.flatten = torch.nn.Flatten()
         self.layer_1 = torch.nn.Linear(input_size, hidden_size)
@@ -28,23 +31,33 @@ class CustomFCN(torch.nn.Module):
         self.dropout_3 = torch.nn.Dropout(0.2)
         self.layer_4 = torch.nn.Linear(hidden_size, num_classes)
 
-    def forward(self, x):
-        x = self.flatten(x)
-        x = self.layer_1(x)
-        x = self.relu_1(x)
-        x = self.dropout_1(x)
-        x = self.layer_2(x)
-        x = self.relu_2(x)
-        x = self.dropout_2(x)
-        x = self.layer_3(x)
-        x = self.relu_3(x)
-        x = self.dropout_3(x)
-        out = self.layer_4(x)
+    def forward(self, sample: torch.Tensor) -> torch.Tensor:
+        """Forward pass of custom FCN network.
+
+        Args:
+            sample: Sample to process.
+
+        Returns:
+            Tensor result.
+        """
+        sample = self.flatten(sample)
+        sample = self.layer_1(sample)
+        sample = self.relu_1(sample)
+        sample = self.dropout_1(sample)
+        sample = self.layer_2(sample)
+        sample = self.relu_2(sample)
+        sample = self.dropout_2(sample)
+        sample = self.layer_3(sample)
+        sample = self.relu_3(sample)
+        sample = self.dropout_3(sample)
+        out = self.layer_4(sample)
         # no activation and no softmax at the end
         return out
 
 
 class CustomCNN(torch.nn.Module):
+    """Custom CNN network."""
+
     def __init__(
         self,
         num_classes: int,
@@ -61,19 +74,30 @@ class CustomCNN(torch.nn.Module):
         self.fc2 = torch.nn.Linear(120, 84)
         self.fc3 = torch.nn.Linear(84, num_classes)
 
-    def forward(self, x):
-        x = self.pool1(torch.nn.functional.relu(self.conv1(x)))
-        x = self.pool2(torch.nn.functional.relu(self.conv2(x)))
-        x = self.pool3(torch.nn.functional.relu(self.conv3(x)))
-        x = torch.nn.functional.relu(self.conv4(x))
-        x = torch.flatten(x, 1)  # flatten all dimensions except batch
-        x = torch.nn.functional.relu(self.fc1(x))
-        x = torch.nn.functional.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
+    def forward(self, sample: torch.Tensor) -> torch.Tensor:
+        """Forward pass of custom CNN network.
+
+        Args:
+            sample: Sample to process.
+
+        Returns:
+            Tensor result.
+        """
+        sample = self.pool1(torch.nn.functional.relu(self.conv1(sample)))
+        sample = self.pool2(torch.nn.functional.relu(self.conv2(sample)))
+        sample = self.pool3(torch.nn.functional.relu(self.conv3(sample)))
+        sample = torch.nn.functional.relu(self.conv4(sample))
+        # flatten all dimensions except batch
+        sample = torch.flatten(sample, 1)  # pylint: disable = (no-member)
+        sample = torch.nn.functional.relu(self.fc1(sample))
+        sample = torch.nn.functional.relu(self.fc2(sample))
+        sample = self.fc3(sample)
+        return sample
 
 
 class CustomLSTM(torch.nn.Module):
+    """Custom LSTM network."""
+
     # https://www.kaggle.com/code/andradaolteanu/pytorch-rnns-and-lstms-explained-acc-0-99
     def __init__(
         self,
@@ -81,11 +105,11 @@ class CustomLSTM(torch.nn.Module):
         hidden_size: int,
         layer_size: int,
         num_classes: int,
-        device: torch.device,
+        device: torch.device,  # pylint: disable = (no-member)
         batch_size: int = 1,
         bidirectional: bool = False,
     ):
-        super(CustomLSTM, self).__init__()
+        super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.layer_size = layer_size
@@ -108,31 +132,39 @@ class CustomLSTM(torch.nn.Module):
             self.fnn = torch.nn.Linear(hidden_size, num_classes)
 
         if self.bidirectional:
-            self.hidden_state = torch.zeros(
+            self.hidden_state = torch.zeros(  # pylint: disable = (no-member)
                 self.layer_size * 2,
                 self.batch_size,
                 self.hidden_size,
             ).to(self.device)
-            self.cell_state = torch.zeros(
+            self.cell_state = torch.zeros(  # pylint: disable = (no-member)
                 self.layer_size * 2,
                 self.batch_size,
                 self.hidden_size,
             ).to(self.device)
         else:
-            self.hidden_state = torch.zeros(
+            self.hidden_state = torch.zeros(  # pylint: disable = (no-member)
                 self.layer_size,
                 self.batch_size,
                 self.hidden_size,
             ).to(self.device)
-            self.cell_state = torch.zeros(
+            self.cell_state = torch.zeros(  # pylint: disable = (no-member)
                 self.layer_size,
                 self.batch_size,
                 self.hidden_size,
             ).to(self.device)
 
-    def forward(self, x):
-        x = x.reshape(x.shape[0], x.shape[1], -1)
-        output, _ = self.lstm(x, (self.hidden_state, self.cell_state))
+    def forward(self, sample: torch.Tensor) -> torch.Tensor:
+        """Forward pass of custom LSTM network.
+
+        Args:
+            sample: Sample to process.
+
+        Returns:
+            Tensor result.
+        """
+        sample = sample.reshape(sample.shape[0], sample.shape[1], -1)
+        output, _ = self.lstm(sample, (self.hidden_state, self.cell_state))
 
         # FNN
         output = self.fnn(output[:, -1, :])
@@ -140,13 +172,32 @@ class CustomLSTM(torch.nn.Module):
 
 
 class Bert(torch.nn.Module):
+    """BERT wrapper."""
+
     def __init__(self, model_name: str = "textattack/bert-base-uncased-imdb"):
-        super(Bert, self).__init__()
+        super().__init__()
         self.model = BertForSequenceClassification.from_pretrained(
             model_name, torchscript=True
         )
 
-    def forward(self, input_ids, token_type_ids, attention_mask):
+    def forward(
+        self,
+        input_ids: torch.Tensor,
+        token_type_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """Forward pass of BERT model.
+
+        Args:
+            input_ids: Indices of input sequence tokens in the vocabulary.
+            token_type_ids: Segment token indices to indicate first and second
+                portions of the inputs. Indices are selected in [0, 1]
+            attention_mask: Mask to avoid performing attention on padding token
+                indices. Mask values selected in [0, 1].
+
+        Returns:
+            Tensor result.
+        """
         return self.model(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -155,6 +206,8 @@ class Bert(torch.nn.Module):
 
 
 class T5(torch.nn.Module):
+    """T5 wrapper."""
+
     def __init__(
         self,
         model_name: str = "t5-base",
@@ -162,7 +215,7 @@ class T5(torch.nn.Module):
         min_length: int = 100,
         num_beams: int = 4,
     ):
-        super(T5, self).__init__()
+        super().__init__()
         self.model_name = model_name
         self.max_length = max_length
         self.min_length = min_length
@@ -171,7 +224,21 @@ class T5(torch.nn.Module):
             self.model_name, torchscript=True
         )
 
-    def forward(self, input_ids, attention_mask):
+    def forward(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,  # pylint: disable = (unused-argument)
+    ) -> torch.Tensor:
+        """Forward pass of T5 model.
+
+        Args:
+            input_ids: Indices of input sequence tokens in the vocabulary.
+            token_type_ids: Segment token indices to indicate first and second
+                portions of the inputs. Indices are selected in [0, 1]
+
+        Returns:
+            Tensor result.
+        """
         outputs = self.model.generate(
             input_ids,
             max_length=self.max_length,
@@ -182,6 +249,8 @@ class T5(torch.nn.Module):
 
 
 class GPTNeo(torch.nn.Module):
+    """GPTNeo wrapper."""
+
     def __init__(
         self,
         model_name: str = "EleutherAI/gpt-neo-125M",
@@ -189,7 +258,7 @@ class GPTNeo(torch.nn.Module):
         min_length: int = 100,
         num_beams: int = 4,
     ):
-        super(GPTNeo, self).__init__()
+        super().__init__()
         self.model_name = model_name
         self.max_length = max_length
         self.min_length = min_length
@@ -198,7 +267,21 @@ class GPTNeo(torch.nn.Module):
             self.model_name, torchscript=True
         )
 
-    def forward(self, input_ids, attention_mask):
+    def forward(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """Forward pass of GPTNeo model.
+
+        Args:
+            input_ids: Indices of input sequence tokens in the vocabulary.
+            token_type_ids: Segment token indices to indicate first and second
+                portions of the inputs. Indices are selected in [0, 1]
+
+        Returns:
+            Tensor result.
+        """
         outputs = self.model.generate(
             input_ids,
             attention_mask=attention_mask,

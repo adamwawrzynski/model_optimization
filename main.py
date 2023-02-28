@@ -1,8 +1,13 @@
+# pylint: disable = (missing-module-docstring)
+
 import argparse
 import os
 
 import torch
-import torch_tensorrt  # to install follow https://github.com/pytorch/TensorRT/issues/1371#issuecomment-1256035010 in version 1.3.0
+
+# to install version 1.3.0 follow
+# https://github.com/pytorch/TensorRT/issues/1371#issuecomment-1256035010
+import torch_tensorrt
 
 from src.benchmark import (
     BenchmarkCPU,
@@ -123,20 +128,24 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    torch.backends.cudnn.benchmark = True  # has influence on performance on CNNs: https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#enable-cudnn-auto-tuner
+    # has influence on performance on CNNs:
+    # https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#enable-cudnn-auto-tuner
+    torch.backends.cudnn.benchmark = True
 
     # https://pytorch.org/docs/stable/amp.html
 
     # For now, we suggest to disable the Jit Autocast Pass,
     # As the issue: https://github.com/pytorch/pytorch/issues/75956
     if args.use_jit:
-        torch._C._jit_set_autocast_mode(False)
+        torch._C._jit_set_autocast_mode(  # pylint: disable = (protected-access,c-extension-no-member)
+            False
+        )
 
     if not torch.cuda.is_available():
         raise RuntimeError("No CUDA device detected. Exiting...")
 
-    cuda_device = torch.device("cuda:0")
-    cpu_device = torch.device("cpu:0")
+    cuda_device = torch.device("cuda:0")  # pylint: disable = (no-member)
+    cpu_device = torch.device("cpu:0")  # pylint: disable = (no-member)
 
     dataset_factory: DatasetFactory
     if args.model_name in ["bert", "t5", "gptneo"]:

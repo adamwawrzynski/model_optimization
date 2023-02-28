@@ -25,6 +25,11 @@ url = "https://github.com/pytorch/TensorRT/releases/expanded_assets/v1.3.0"
 default = false
 secondary = false
 
+
+[tool.poetry.group.dev.dependencies]
+black = "22.10.0"
+pylint = "2.15.4"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
