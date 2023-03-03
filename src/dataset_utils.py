@@ -95,7 +95,8 @@ class DatasetIMDBFactory(DatasetFactory):
 
         # PAD_TOKEN is not set by default; set PAD_TOKEN for GPT model
         if isinstance(tokenizer, (GPT2Tokenizer, GPT2TokenizerFast)):
-            tokenizer.pad_token = tokenizer.eos_token
+            tokenizer.pad_token_id = tokenizer.eos_token_id
+            tokenizer.padding_side = "left"
 
         dataset = load_dataset(path="imdb")
 

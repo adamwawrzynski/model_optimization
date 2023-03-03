@@ -120,7 +120,7 @@ def parse_args() -> argparse.Namespace:
         "--dataset_size",
         type=int,
         default=150,
-        help="Numbero of samples from IMDB dataset to use.",
+        help="Number of samples from IMDB dataset to use.",
     )
 
     return parser.parse_args()

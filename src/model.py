@@ -2,6 +2,7 @@
 
 import torch
 from transformers import (
+    AutoTokenizer,
     BertForSequenceClassification,
     GPTNeoForCausalLM,
     T5ForConditionalGeneration,
@@ -266,6 +267,7 @@ class GPTNeo(torch.nn.Module):
         self.model = GPTNeoForCausalLM.from_pretrained(
             self.model_name, torchscript=True
         )
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
 
     def forward(
         self,
@@ -288,5 +290,6 @@ class GPTNeo(torch.nn.Module):
             max_length=self.max_length,
             min_length=self.min_length,
             num_beams=self.num_beams,
+            pad_token_id=self.tokenizer.eos_token_id,
         )
         return outputs[0]

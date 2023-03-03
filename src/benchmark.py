@@ -14,7 +14,6 @@ import torchmetrics
 import transformers
 from torch.jit import ScriptModule
 from torch.nn.utils import prune
-from torchvision.datasets import ImageFolder
 from transformers import BatchEncoding
 
 from src.dataset_utils import CustomDataset, DatasetFactory
@@ -36,10 +35,10 @@ def prepare_dataset(
 ) -> Tuple[List[torch.Tensor], List[torch.Tensor]]:
     samples: List[torch.Tensor] = []
     labels: List[torch.Tensor] = []
-    data_iterator: torch.utils.data.DataLoader
-    if isinstance(dataset, torch.utils.data.DataLoader):
+    data_iterator: Union[torch.utils.data.DataLoader, CustomDataset]
+    if isinstance(dataset, CustomDataset):
         data_iterator = dataset
-    elif isinstance(dataset, (CustomDataset, ImageFolder)):
+    else:
         testloader = torch.utils.data.DataLoader(
             dataset,
             batch_size=batch_size,
@@ -124,7 +123,7 @@ def measure_inference_latency(
     dataset: torch.utils.data.Dataset,
     n_runs: int,
     dtype: str = "fp32",
-    num_warmups: int = 50,
+    num_warmups: int = 5,
 ) -> float:
     # https://developer.nvidia.com/blog/accelerating-inference-up-to-6x-faster-in-pytorch-with-torch-tensorrt/
 
