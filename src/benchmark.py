@@ -150,6 +150,12 @@ def measure_inference_latency(
         dtype=dtype,
     )
     num_samples = len(sample_batches)
+    if num_samples < num_warmups:
+        print(
+            "WARNING: Number of warmup steps is lower than number of data samples."
+            + "Use number of samples instead."
+        )
+        num_warmups = num_samples
 
     warmup_model(model, device, num_warmups, sample_batches)
 
