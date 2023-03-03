@@ -14,6 +14,7 @@ import torchmetrics
 import transformers
 from torch.jit import ScriptModule
 from torch.nn.utils import prune
+from torchvision.datasets import ImageFolder
 from transformers import BatchEncoding
 
 from src.dataset_utils import CustomDataset, DatasetFactory
@@ -38,7 +39,7 @@ def prepare_dataset(
     data_iterator: torch.utils.data.DataLoader
     if isinstance(dataset, torch.utils.data.DataLoader):
         data_iterator = dataset
-    elif not isinstance(dataset, CustomDataset):
+    elif isinstance(dataset, (CustomDataset, ImageFolder)):
         testloader = torch.utils.data.DataLoader(
             dataset,
             batch_size=batch_size,
@@ -153,10 +154,10 @@ def measure_inference_latency(
 
     warmup_model(model, device, num_warmups, sample_batches)
 
-    is_t5_model: bool = not isinstance(model, T5) or (
+    is_t5_model: bool = isinstance(model, T5) or (
         isinstance(model, ScriptModule) and model.original_name == "T5"
     )
-    is_gpt_model: bool = not isinstance(model, GPTNeo) or (
+    is_gpt_model: bool = isinstance(model, GPTNeo) or (
         isinstance(model, ScriptModule) and model.original_name == "GPTNeo"
     )
     is_nlg_model: bool = is_t5_model or is_gpt_model
@@ -199,26 +200,23 @@ def measure_inference_run(
     is_nlg_model: bool,
 ) -> float:
     with torch.no_grad():
-        prediction_list: List[torch.Tensor] = []
+        predicted_class: List[torch.Tensor] = []
         start_time = time.time()
         for sample in sample_batches:
             if isinstance(sample, BatchEncoding):
                 y_pred = model(**sample)
             else:
                 y_pred = model(sample)
-            prediction_list.append(y_pred)
+
             if "cuda" in device.type:
                 torch.cuda.synchronize()
 
-        end_time = time.time()
-        if is_nlg_model:
-            predicted_class = []
-            for y_pred in prediction_list:
-                predicted_class.append(
-                    torch.argmax(y_pred, dim=1)  # pylint: disable = (no-member)
-                )
+            if not is_nlg_model:
+                predicted_class.append(torch.argmax(y_pred, dim=1))
 
-    if is_nlg_model:
+    end_time = time.time()
+
+    if not is_nlg_model:
         f1_metric = torchmetrics.F1Score(task="multiclass", num_classes=1000)
         preds = (
             torch.hstack(predicted_class)  # pylint: disable = (no-member)
