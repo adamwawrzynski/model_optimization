@@ -8,6 +8,12 @@ sample, VRAM requirements and precision of a model.
 
 To install all dependencies run `poetry install` command.
 
+## pre-commit
+
+To install `pre-commit` hooks run `poetry run pre-commit install` command. After that
+code changes will be checked by hooks after every commit. You can also trigger them
+without commiting changes using `pre-commit run` command.
+
 ## Dataset
 
 The benchmark uses the ImageNet-mini dataset, which can be downloaded from the site:
