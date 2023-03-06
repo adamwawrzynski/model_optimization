@@ -1,3 +1,7 @@
+# Important Note
+
+**This repository was moved and will be developed here: https://github.com/softwaremill/model_optimization.**
+
 # Model's optimizations
 
 This repository contains scripts to perform a benchmark of different ways to optimize
